@@ -15,8 +15,9 @@ __all__ = ('child_service', 'IPCRPCServer', 'IPCRPCClient')
 @contextmanager
 def child_service(klass, concurrency=10, queue_size=None):
     with gipc.pipe(duplex=True) as (child_channel, parent_channel):
-        service = klass(concurrency=concurrency, queue_size=queue_size)
-        service_process = gipc.start_process(target=service, args=(child_channel,))
+        service = klass()
+        args = (child_channel, concurrency, queue_size)
+        service_process = gipc.start_process(target=service, args=args)
 
         client = IPCRPCClient(parent_channel)
         try:
@@ -24,15 +25,18 @@ def child_service(klass, concurrency=10, queue_size=None):
         finally:
             client.close()
             service_process.join()
-    
+
 
 class IPCRPCServer(object):
-    def __init__(self, concurrency=10, queue_size=None):
-        self._queue_size = queue_size
-        self._concurrency = concurrency
+    def __init__(self):
+        pass
 
     def init(self):
         pass
+
+    def _configure(self, concurrency, queue_size):
+        self._queue_size = queue_size
+        self._concurrency = concurrency
 
     def _start_processors(self):
         # you must call this method after fork()
@@ -61,8 +65,9 @@ class IPCRPCServer(object):
             thread.join()
         self._channel.close()
 
-    def __call__(self, channel):
+    def __call__(self, channel, concurrency=10, queue_size=None):
         self._channel = channel
+        self._configure(concurrency, queue_size)
 
         self.init()
         self._start_processors()
