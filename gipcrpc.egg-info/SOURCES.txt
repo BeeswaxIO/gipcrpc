@@ -1,0 +1,7 @@
+setup.py
+gipcrpc/__init__.py
+gipcrpc.egg-info/PKG-INFO
+gipcrpc.egg-info/SOURCES.txt
+gipcrpc.egg-info/dependency_links.txt
+gipcrpc.egg-info/requires.txt
+gipcrpc.egg-info/top_level.txt
