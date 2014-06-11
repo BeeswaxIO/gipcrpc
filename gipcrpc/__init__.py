@@ -16,9 +16,9 @@ __all__ = ('child_service', 'IPCRPCServer', 'IPCRPCClient')
 def child_service(klass, concurrency=10, queue_size=None):
     with gipc.pipe(duplex=True) as (child_channel, parent_channel):
         service = klass(concurrency=concurrency, queue_size=queue_size)
-        service_process = gipc.start_process(target=service, args=(parent_channel,))
+        service_process = gipc.start_process(target=service, args=(child_channel,))
 
-        client = IPCRPCClient(child_channel)
+        client = IPCRPCClient(parent_channel)
         try:
             yield client
         finally:
