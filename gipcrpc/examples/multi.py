@@ -15,8 +15,8 @@ class MyService(IPCRPCServer):
 
 def main():
     # 'concurrency' will control simultaneous processing gleenlet number on service
-    # fork only 1 process for MyService
-    with child_service(MyService, concurrency=10) as client:
+    # fork 10 processes for MyService
+    with child_service(MyService, n_process=10, concurrency=10) as client:
         # async callback
         def _callback(value):
             print '_callback: value=%d' % value
@@ -28,6 +28,12 @@ def main():
         # future(gevent.event.AsyncResult object)
         future = client.call_async('sum', 10, 20)
         print 'future: value=%d' % future.get()  # will block until service side computation finishes
+
+        for i in range(20):
+            a = i * 2 + 5
+            b = i * 3 + 7
+            result = client.call('sum', a, b)
+            print 'sum(%d, %d)=%d' % (a, b, result)
 
 
 if __name__ == '__main__':

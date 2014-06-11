@@ -13,18 +13,28 @@ __all__ = ('child_service', 'IPCRPCServer', 'IPCRPCClient')
 
 
 @contextmanager
-def child_service(klass, concurrency=10, queue_size=None):
-    with gipc.pipe(duplex=True) as (child_channel, parent_channel):
-        service = klass()
-        args = (child_channel, concurrency, queue_size)
-        service_process = gipc.start_process(target=service, args=args)
+def child_service(klass, n_process=1, concurrency=10, queue_size=None):
+    service_processes = []
+    clients = []
 
-        client = IPCRPCClient(parent_channel)
-        try:
-            yield client
-        finally:
-            client.close()
-            service_process.join()
+    for i in range(n_process):
+        child_ch, parent_ch = gipc.pipe(duplex=True)
+        service = klass()
+        internal_pid = i + 1
+        args = (child_ch, internal_pid, concurrency, queue_size)
+        service_process = gipc.start_process(target=service, args=args)
+        service_processes.append(service_process)
+
+        client = IPCRPCClient(parent_ch)
+        clients.append(client)
+
+    multi_client = IPCRPCMultiProcessClient(clients)
+    try:
+        yield multi_client
+    finally:
+        multi_client.close()
+        for process in service_processes:
+            process.join()
 
 
 class IPCRPCServer(object):
@@ -34,26 +44,28 @@ class IPCRPCServer(object):
     def init(self):
         pass
 
-    def _configure(self, concurrency, queue_size):
+    def _configure(self, internal_pid, concurrency, queue_size):
         self._queue_size = queue_size
         self._concurrency = concurrency
+        self._internal_pid = internal_pid
 
     def _start_processors(self):
         # you must call this method after fork()
         self._queue = Queue(self._queue_size)
         self._threads = []
         for i in range(self._concurrency):
-            thread = gevent.spawn(self._process_thread)
+            thread_id = i + 1
+            thread = gevent.spawn(self._process_thread, thread_id)
             self._threads.append(thread)
 
-    def _process_thread(self):
+    def _process_thread(self, thread_id):
         for req in self._queue:
             msg_id, method, args = self._parse_request(req)
 
             try:
                 ret = method(*args)
             except Exception as e:
-                logging.exception('Error occured during RPC')
+                logging.exception('[process:%d][worker:%d] Error occured during RPC' % (self._internal_pid, thread_id))
                 self._send_error(str(e), msg_id)
             else:
                 self._send_result(ret, msg_id)
@@ -65,9 +77,9 @@ class IPCRPCServer(object):
             thread.join()
         self._channel.close()
 
-    def __call__(self, channel, concurrency=10, queue_size=None):
+    def __call__(self, channel, internal_pid, concurrency=10, queue_size=None):
         self._channel = channel
-        self._configure(concurrency, queue_size)
+        self._configure(internal_pid, concurrency, queue_size)
 
         self.init()
         self._start_processors()
@@ -193,3 +205,36 @@ class IPCRPCClient(object):
         self._msg_id += 1
         req = (self._msg_id, method_name, args)
         return req
+
+
+class IPCRPCMultiProcessClient(object):
+    def __init__(self, clients):
+        self._clients = tuple(clients)
+        self._idx = 0
+
+    def _choose_client(self):
+        client = self._clients[self._idx]
+
+        self._idx += 1
+        if self._idx == len(self._clients):
+            self._idx = 0
+
+        return client
+
+    def close(self):
+        assert self._clients is not None
+        for client in self._clients:
+            client.close()
+        self._clients = None
+
+    def call_async(self, method_name, *args):
+        client = self._choose_client()
+        return client.call_async(method_name, *args)
+
+    def call(self, method_name, *args):
+        client = self._choose_client()
+        return client.call(method_name, *args)
+
+    def call_callback(self, callback, method_name, *args):
+        client = self._choose_client()
+        client.call_callback(callback, method_name, *args)
