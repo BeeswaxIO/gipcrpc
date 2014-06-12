@@ -3,6 +3,7 @@
 import time
 import hashlib
 import gevent
+import functools
 
 from gipcrpc import child_service, IPCRPCServer
 
@@ -27,10 +28,11 @@ def main():
 
         for i in xrange(n):
             arg = str(i)
-            def _cb(value):
+            def _cb(value, arg=None):
                 global count
                 count += 1
-                # print '%s count=%d' % (value, count)
+                # print '%s => %s count=%d' % (arg, value, count)
+            _cb = functools.partial(_cb, arg=arg)  # preseve original arg to show debug msg
             client.call_callback(_cb, 'superhash', arg)
 
         def _waiter():
