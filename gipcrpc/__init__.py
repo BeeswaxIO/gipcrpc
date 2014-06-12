@@ -211,6 +211,10 @@ class IPCRPCMultiProcessClient(object):
         self._clients = tuple(clients)
         self._idx = 0
 
+    def get_client(self, idx):
+        assert 0 <= idx < len(self._clients)
+        return self._clients[idx]
+
     def _choose_client(self):
         client = self._clients[self._idx]
 
