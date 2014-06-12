@@ -9,7 +9,7 @@ from collections import deque
 from contextlib import contextmanager
 
 
-__all__ = ('child_service', 'IPCRPCServer', 'IPCRPCClient')
+__all__ = ('child_service', 'IPCRPCServer', 'IPCRPCClient', 'IPCRPCMultiProcessClient')
 
 
 @contextmanager
