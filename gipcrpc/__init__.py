@@ -42,6 +42,8 @@ class IPCRPCServer(object):
         pass
 
     def init(self):
+        """subclass can initialize something here,
+        will be called after fork()"""
         pass
 
     def _configure(self, internal_pid, concurrency, queue_size):
@@ -50,7 +52,7 @@ class IPCRPCServer(object):
         self._internal_pid = internal_pid
 
     def _start_processors(self):
-        # you must call this method after fork()
+        """you must call this method after fork()"""
         self._queue = Queue(self._queue_size)
         self._threads = []
         for i in range(self._concurrency):
@@ -99,17 +101,14 @@ class IPCRPCServer(object):
         msg_id, method_name, args = req
 
         if method_name.startswith('_') or method_name == 'init':
-            raise ValueError()
+            raise ValueError('No such method: %s' % method_name)
 
         if not hasattr(self, method_name):
-            raise ValueError()
+            raise ValueError('No such method: %s' % method_name)
 
         method = getattr(self, method_name)
-        if not method:
-            raise ValueError()
-
         if not hasattr(method, '__call__'):
-            raise ValueError()
+            raise ValueError('Method \'%s\' is not callable' & method_name)
 
         return (msg_id, method, args)
 
