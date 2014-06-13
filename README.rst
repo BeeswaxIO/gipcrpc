@@ -6,7 +6,7 @@ RPC framework for parent and children using gipc(gevent)
 Installation
 ------------
 
-(To be updated)
+$ pip install gipcrpc
 
 
 Examples
