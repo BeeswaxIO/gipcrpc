@@ -3,4 +3,4 @@
 from server import IPCRPCServer
 from client import IPCRPCClient
 from multi_client import IPCRPCMultiProcessClient
-from context import child_service
+from context import child_service, fork_service
