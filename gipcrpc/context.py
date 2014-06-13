@@ -19,7 +19,7 @@ def child_service(klass, n_process=1, concurrency=10, queue_size=None):
     for i in range(n_process):
         child_ch, parent_ch = gipc.pipe(duplex=True)
         service = klass()
-        internal_pid = i + 1
+        internal_pid += 1
         args = (child_ch, internal_pid, concurrency, queue_size)
         service_process = gipc.start_process(target=service, args=args)
         service_processes.append(service_process)
