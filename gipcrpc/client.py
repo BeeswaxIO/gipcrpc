@@ -13,7 +13,7 @@ class IPCRPCClient(object):
         self._result = {}
         self._msg_id = 0
 
-        self._callback_threads = []
+        self._callback_threads = {}
         self._msg_id_queue = Queue()
         self._response_receiver = gevent.spawn(self._receive)
 
@@ -52,8 +52,8 @@ class IPCRPCClient(object):
     def close(self):
         assert self._channel is not None
 
-        for gthread in self._callback_threads:
-            gthread.join()
+        while 0 < len(self._callback_threads):
+            gevent.sleep()
 
         self._msg_id_queue.put([0, None])  # will shut recv thread down
 
@@ -67,12 +67,21 @@ class IPCRPCClient(object):
         return future.get()
 
     def call_callback(self, callback, method_name, *args):
+        msg_id, future = self._call_async(method_name, *args)
         def _call_callback():
-            callback(self.call(method_name, *args))
+            try:
+                callback(self.call(method_name, *args))
+            finally:
+                del self._callback_threads[msg_id]
+
         gthread = gevent.spawn(_call_callback)
-        self._callback_threads.append(gthread)
+        self._callback_threads[msg_id] = gthread
 
     def call_async(self, method_name, *args):
+        _, future = self._call_async(method_name, *args)
+        return future
+
+    def _call_async(self, method_name, *args):
         assert self._channel is not None
         req = self._create_request(method_name, args)
         self._channel.put(req)  # send request
@@ -80,7 +89,7 @@ class IPCRPCClient(object):
         msg_id = req[0]
         future = AsyncResult()
         self._msg_id_queue.put([msg_id, future])
-        return future
+        return (msg_id, future)
 
     def _create_request(self, method_name, args):
         self._msg_id += 1
