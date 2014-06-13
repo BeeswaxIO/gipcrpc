@@ -7,8 +7,12 @@ from client import IPCRPCClient
 from multi_client import IPCRPCMultiProcessClient
 
 
+_internal_pid = 0
+
+
 @contextmanager
 def child_service(klass, n_process=1, concurrency=10, queue_size=None):
+    global _internal_pid
     service_processes = []
     clients = []
 
