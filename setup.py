@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='gipcrpc',
-    version='0.1.0',
+    version='0.1.1',
     description='RPC framework for parent and children using gipc(gevent)',
     long_description=open('README.rst').read(),
     author='Studio Ousia',
