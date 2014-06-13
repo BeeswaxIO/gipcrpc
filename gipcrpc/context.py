@@ -30,6 +30,15 @@ def child_service(klass, n_process=1, concurrency=10, queue_size=None):
             process.join()
 
 
+@contextmanager
+def starter_context():
+    context = IPCRPCServiceStarter()
+    try:
+        yield context
+    finally:
+        context.close()
+
+
 def fork_service(klass, concurrency=10, queue_size=None):
     """simply create service process, returns tuple like (service_process, client)
     you can communicate through client's call/call_async/call_callback methods.
@@ -44,3 +53,21 @@ def fork_service(klass, concurrency=10, queue_size=None):
 
     client = IPCRPCClient(parent_ch)
     return (service_process, client)
+
+
+class IPCRPCServiceStarter(object):
+    def __init__(self):
+        self._service_processes = []
+        self._clients = []
+
+    def start(self, klass, concurrency=10, queue_size=None):
+        (service_process, client) = fork_service(klass, concurrency, queue_size)
+        self._service_processes.append(service_process)
+        self._clients.append(client)
+        return client
+
+    def close(self):
+        for client in self._clients:
+            client.close()
+        for service_process in self._service_processes:
+            service_process.join()
