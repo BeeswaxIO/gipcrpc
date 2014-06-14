@@ -5,20 +5,11 @@ import itertools
 from unittest import TestCase
 from nose.tools import ok_, eq_
 
-from gipcrpc import child_service, IPCRPCServer
 
-class MyService(IPCRPCServer):
-    def sum(self, a, b):
-        return a + b
-
-    def multiply(self, a, b):
-        return a * b
+from gipcrpc import child_service
 
 
-class DelayService(IPCRPCServer):
-    def delay(self, msec):
-        gevent.sleep(msec / 1000.0)
-        return msec
+from dummy_services import MyService, DelayService
 
 
 class BasicUsageTestCase(TestCase):
@@ -30,8 +21,16 @@ class BasicUsageTestCase(TestCase):
 
             for n, c, q in itertools.product(n_levels, c_levels, q_sizes):
                 with child_service(MyService, n_process=n, concurrency=c, queue_size=q) as client:
-                    value = client.call('sum', 5, 9)
-                    eq_(value, 14)
+                    for i in xrange(n):
+                        a = i * 2 + 7
+                        b = i * 3 + 5
+                        expected = a + b
+                        result = client.call('sum', a, b)
+                        eq_(result, expected)
+
+                        expected_m = a * b
+                        result_m = client.call('multiply', a, b)
+                        eq_(result_m, expected_m)
 
                 with child_service(MyService, concurrency=c, queue_size=q) as client:
                     future = client.call_async('sum', 3, 7)
