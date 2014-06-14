@@ -30,6 +30,10 @@ def main():
         # try sum again, created service is alive until with block closes
         print 'sum(3, 4)=%d' % client_for_sum.call('sum', 3, 4)
 
+        # need more process? use 'n_process' parameter
+        client_for_sum_p2 = context.start(SumService, n_process=2)
+        print 'sum(10, 20)=%d' % client_for_sum_p2.call('sum', 10, 20)
+
     # at end of with, starter_context will wait for unfinished tasks
     # and shut down all sub processes
     # for now, total process is 1, only parent.
