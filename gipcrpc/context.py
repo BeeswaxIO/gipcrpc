@@ -12,22 +12,10 @@ _internal_pid = 0
 
 @contextmanager
 def child_service(klass, n_process=1, concurrency=10, queue_size=None):
-    global _internal_pid
-    service_processes = []
-    clients = []
-
-    for i in range(n_process):
-        service_process, client = fork_service(klass, concurrency, queue_size)
-        service_processes.append(service_process)
-        clients.append(client)
-
-    multi_client = IPCRPCMultiProcessClient(clients)
-    try:
-        yield multi_client
-    finally:
-        multi_client.close()
-        for process in service_processes:
-            process.join()
+    with starter_context() as context:
+        client = context.start(
+            klass, concurrency=concurrency, queue_size=queue_size, n_process=n_process)
+        yield client
 
 
 @contextmanager
@@ -60,11 +48,29 @@ class IPCRPCServiceStarter(object):
         self._service_processes = []
         self._clients = []
 
-    def start(self, klass, concurrency=10, queue_size=None):
+    def start(self, klass, concurrency=10, queue_size=None, n_process=1):
+        assert 0 < n_process
+        if n_process == 1:
+            return self._start_single(klass, concurrency, queue_size)
+        else:
+            return self._start_multi(klass, n_process, concurrency, queue_size)
+
+    def _start_single(self, klass, concurrency, queue_size):
         (service_process, client) = fork_service(klass, concurrency, queue_size)
         self._service_processes.append(service_process)
         self._clients.append(client)
         return client
+
+    def _start_multi(self, klass, n_process, concurrency, queue_size):
+        assert 1 < n_process
+        clients = []
+        for i in xrange(n_process):
+            (service_process, client) = fork_service(klass, concurrency, queue_size)
+            self._service_processes.append(service_process)
+            clients.append(client)
+        multi_client = IPCRPCMultiProcessClient(clients)
+        self._clients.append(multi_client)
+        return multi_client
 
     def close(self):
         for client in self._clients:
